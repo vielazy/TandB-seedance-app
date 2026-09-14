@@ -1,5 +1,21 @@
 [
   {
+    "version": "1.3.0",
+    "changed_at": "2026-09-14T00:00:00.000Z",
+    "type": "fix",
+    "title": "Sửa cấu trúc upload theo đúng API 79AI + thêm chế độ cắt video tham chiếu",
+    "items": [
+      "Root cause upload: mockBridge gọi POST {API_BASE}/ai/upload với field `file`+`type`. Endpoint thật là POST https://v2.api.gommo.net/ai/upload/{image|video}, field `file` cho ảnh và `video_file` cho video/audio, kèm project_id + file_name + size. Vì gọi sai nên lần nào cũng ném lỗi rồi rơi xuống catbox.moe — file nằm ngoài 79AI, không vào album/project và link không bền.",
+      "mockBridge.js: thêm uploadToFilesManager() đúng hợp đồng trên; bắt HTTP 413 thành 'File quá to vượt quá 50MB hệ thống cho phép'; đọc URL ở data/imageInfo/videoInfo → url|download_url|file_url|resolutions[0].url; trả thêm id_base, thumb_url, size, mime. Catbox/Litterbox lùi xuống làm dự phòng cuối.",
+      "media.upload_image / media.upload_video trả nguyên object (có id_base) thay vì chỉ mỗi url.",
+      "lib/cutVideo.js (mới): port node 'Cut Video' của 79ai.net — đo metadata bằng thẻ <video> (fallback media-proxy.gommo.net), 5 chế độ fix/range/last/trim/random, dựng render plan schema version 1.",
+      "mockBridge.js: thêm action media.cut_video → POST /api/apps/go-mmo/ai_spaces/render với plan JSON.",
+      "components/CutVideoModal.jsx (mới) + nút kéo trên từng video ở panel 3: chọn chế độ, xem trước khoảng cắt, cảnh báo khi vượt 15.2s (giới hạn video ref của Seedance 2.0 Omni).",
+      "scripts/check-79ai.mjs (mới): kiểm upload + render thật bằng access token, không cần mở trình duyệt.",
+      "README: ghi lại hợp đồng API thật (upload, render, create-video với refs[]/start_seconds/video_files[]) và ràng buộc reference của Seedance 2.0."
+    ]
+  },
+  {
     "version": "1.2.9",
     "changed_at": "2026-09-05T13:40:00.000Z",
     "type": "fix",

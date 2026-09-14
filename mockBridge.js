@@ -13,6 +13,14 @@ if (typeof window !== 'undefined' && !window.gommoMiniApp) {
   const UPLOAD_API = isElectron ? 'https://catbox.moe/user/api.php' : (import.meta.env.VITE_CATBOX_UPLOAD_URL || '/catbox-upload');
   const LITTERBOX_API = isElectron ? 'https://litterbox.catbox.moe/resources/internals/api.php' : (import.meta.env.VITE_LITTERBOX_UPLOAD_URL || '/litterbox-upload');
 
+  // Files Manager của 79AI. Endpoint này bật CORS cho mọi origin (kể cả `null`
+  // của Electron file://) nên gọi thẳng, không cần proxy.
+  const V2_API = import.meta.env.VITE_GOMMO_V2_URL || 'https://v2.api.gommo.net';
+  // Render/cut video — cùng endpoint mà node "Cut Video" trên 79ai.net dùng.
+  const RENDER_API =
+    import.meta.env.VITE_GOMMO_RENDER_URL ||
+    'https://api.gommo.net/api/apps/go-mmo/ai_spaces/render';
+
   const TOKEN_KEY = '79ai_access_token';
   const DOMAIN_KEY = '79ai_domain';
 
@@ -74,6 +82,111 @@ if (typeof window !== 'undefined' && !window.gommoMiniApp) {
     return data;
   }
 
+  /** Lấy URL file trong một node phản hồi upload (url / download_url / file_url / resolutions[0]). */
+  function pickUploadedUrl(node) {
+    if (!node || typeof node !== 'object') return '';
+    for (const key of ['url', 'download_url', 'file_url']) {
+      const v = node[key];
+      if (typeof v === 'string' && v.trim()) return v.trim();
+    }
+    const first = Array.isArray(node.resolutions) ? node.resolutions[0]?.url : '';
+    return typeof first === 'string' ? first.trim() : '';
+  }
+
+  /** Phản hồi upload nằm ở data / imageInfo / videoInfo tuỳ loại và tuỳ tầng. */
+  function readUploadInfo(json, kind) {
+    const raw = json?.raw;
+    const key = kind === 'image' ? 'imageInfo' : 'videoInfo';
+    return json?.data || json?.[key] || raw?.[key] || raw?.data?.[key] || raw?.data || json;
+  }
+
+  /**
+   * Upload lên Files Manager của 79AI — đúng cấu trúc mà 79ai.net dùng:
+   *   POST {V2_API}/ai/upload/{image|video|audio}
+   *   multipart: access_token, domain, file (ảnh) | video_file (video/audio),
+   *              project_id, file_name, size
+   * Trả { url, id_base, thumb_url, size, mime }.
+   */
+  async function uploadToFilesManager(fileObj, kind, payload) {
+    const { token, domain } = getAuth();
+    if (!token) throw new Error('Chưa có Access Token 79AI');
+    const filename = payload.filename || (kind === 'image' ? 'image.jpg' : 'clip.mp4');
+
+    const form = new FormData();
+    form.append('access_token', token);
+    form.append('domain', domain || DEFAULT_DOMAIN);
+    // Tên field khác nhau theo loại: ảnh = "file", video/audio = "video_file".
+    form.append(kind === 'image' ? 'file' : 'video_file', fileObj, filename);
+    // Chỉ gửi khi nơi gọi thật sự truyền vào. lib/media.js CỐ Ý bỏ project_id khi
+    // upload video tham chiếu để không làm bẩn thư viện của project đang chọn —
+    // ép 'default' ở đây sẽ phá lại ý đồ đó.
+    if (payload.project_id) form.append('project_id', payload.project_id);
+    form.append('file_name', filename);
+    form.append('size', String(fileObj.size ?? 0));
+    if (kind === 'image' && payload.category) form.append('category', payload.category);
+
+    console.info(`[79AI Upload] POST ${V2_API}/ai/upload/${kind} — ${filename}`);
+    const res = await fetch(`${V2_API}/ai/upload/${kind}`, { method: 'POST', body: form });
+    if (res.status === 413) throw new Error('File quá to vượt quá 50MB hệ thống cho phép');
+
+    let json;
+    try {
+      json = await res.json();
+    } catch {
+      throw new Error(res.ok ? 'Upload thất bại (phản hồi không phải JSON)' : `HTTP ${res.status}`);
+    }
+
+    const info = readUploadInfo(json, kind);
+    const url = pickUploadedUrl(info);
+    const failed = /FAILED|ERROR|CANCEL/i.test(String(info?.status || ''));
+    if (!url || json?.success === false || failed) {
+      throw new Error(json?.message || json?.error || 'Upload thất bại');
+    }
+    console.info('[79AI Upload] OK:', url);
+    return {
+      url,
+      id_base: info?.id_base || info?.id || json?.id_base || '',
+      thumb_url: info?.thumb_url || info?.thumbnail_url || info?.cover_url || '',
+      size: info?.size ?? info?.file_size ?? null,
+      mime: info?.mime || info?.content_type || payload.mime || null,
+    };
+  }
+
+  /**
+   * Cắt / render video qua ai_spaces/render — cùng API mà node "Cut Video"
+   * của 79ai.net gọi. `plan` do lib/cutVideo.js dựng.
+   */
+  async function renderPlan(payload) {
+    const { token, domain } = getAuth();
+    if (!token) throw new Error('Cắt video cần Access Token 79AI — bấm "Liên kết 79AI" để nhập.');
+
+    const form = new URLSearchParams();
+    form.append('access_token', token);
+    form.append('domain', domain || DEFAULT_DOMAIN);
+    form.append('project_id', payload.project_id || 'default');
+    form.append('plan', JSON.stringify(payload.plan || {}));
+
+    const res = await fetch(RENDER_API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: form.toString(),
+    });
+    const text = await res.text();
+    let json = {};
+    try {
+      json = text ? JSON.parse(text) : {};
+    } catch {
+      throw new Error(text.trim() || `Render thất bại (HTTP ${res.status})`);
+    }
+    if (!res.ok || json.error || json.ERROR || json.success === false || json.status === false) {
+      throw new Error(json.message || json.error_message || String(json.error || '') || 'Cắt video thất bại');
+    }
+    const data = json.data && typeof json.data === 'object' ? json.data : {};
+    const url = json.url || data.url;
+    if (!url) throw new Error(json.message || 'Cắt video thất bại (không có URL trả về)');
+    return { ...json, ...data, url };
+  }
+
   /**
    * Upload media file to get a direct, permanent, publicly reachable HTTPS URL.
    */
@@ -96,35 +209,12 @@ if (typeof window !== 'undefined' && !window.gommoMiniApp) {
       }
     }
 
-    // 1. Try 79AI official /ai/upload first if token exists
+    // 1. Files Manager của 79AI — đường upload chính thức, cùng cấu trúc mà 79ai.net dùng.
     if (token && fileObj) {
       try {
-        console.info(`[79AI Upload] Uploading ${kind} to 79AI server via FormData...`);
-        const form = new FormData();
-        form.append('access_token', token);
-        form.append('domain', domain || DEFAULT_DOMAIN);
-        form.append('type', kind);
-        form.append('file', fileObj, filename);
-        if (payload.project_id) form.append('project_id', payload.project_id);
-
-        const res = await fetch(`${API_BASE}/ai/upload`, {
-          method: 'POST',
-          body: form,
-        });
-        const json = await res.json();
-        const url =
-          json?.data?.url ||
-          json?.url ||
-          json?.data?.file_url ||
-          json?.file_url ||
-          json?.items?.[0]?.url;
-
-        if (url && (url.startsWith('http://') || url.startsWith('https://'))) {
-          console.info('[79AI Upload] Success via 79AI:', url);
-          return url;
-        }
+        return await uploadToFilesManager(fileObj, kind, { ...payload, filename, mime });
       } catch (err) {
-        console.warn('[79AI Upload] 79AI upload failed, trying public host:', err);
+        console.warn('[79AI Upload] Files Manager thất bại, thử host công cộng:', err);
       }
     }
 
@@ -143,7 +233,7 @@ if (typeof window !== 'undefined' && !window.gommoMiniApp) {
         const directUrl = (await res.text()).trim();
         if (directUrl && (directUrl.startsWith('https://') || directUrl.startsWith('http://'))) {
           console.info('[Upload] Catbox direct URL:', directUrl);
-          return directUrl;
+          return { url: directUrl, id_base: '' };
         }
       } catch (err) {
         console.warn('[Upload] Catbox host failed:', err);
@@ -164,7 +254,7 @@ if (typeof window !== 'undefined' && !window.gommoMiniApp) {
         const directUrl = (await res.text()).trim();
         if (directUrl && (directUrl.startsWith('https://') || directUrl.startsWith('http://'))) {
           console.info('[Upload] Litterbox direct URL:', directUrl);
-          return directUrl;
+          return { url: directUrl, id_base: '' };
         }
       } catch (err) {
         console.warn('[Upload] Litterbox host failed:', err);
@@ -254,13 +344,17 @@ if (typeof window !== 'undefined' && !window.gommoMiniApp) {
 
       // Media Uploads
       if (action === 'media.upload_image') {
-        const url = await uploadMediaToCloud(payload, 'image');
-        return { url, name: payload.filename || 'image.jpg' };
+        const res = await uploadMediaToCloud(payload, 'image');
+        return { ...res, name: payload.filename || 'image.jpg' };
       }
 
       if (action === 'media.upload_video') {
-        const url = await uploadMediaToCloud(payload, 'video');
-        return { url, name: payload.filename || 'video.mp4', seconds: payload.seconds || 15 };
+        const res = await uploadMediaToCloud(payload, 'video');
+        return { ...res, name: payload.filename || 'video.mp4', seconds: payload.seconds || 15 };
+      }
+
+      if (action === 'media.cut_video' || action === 'media.render_video') {
+        return await renderPlan(payload);
       }
 
       if (action === 'album.open_picker') {

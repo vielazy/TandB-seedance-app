@@ -13,6 +13,7 @@ import { shortName, formatSeconds } from '../utils/format.js';
 const FIT_CLASS = { contain: 'object-contain', cover: 'object-cover' };
 
 import AlbumPickerModal from './AlbumPickerModal.jsx';
+import CutVideoModal from './CutVideoModal.jsx';
 
 function useUploader(kind, onDone) {
   const [busy, setBusy] = React.useState(false);
@@ -404,6 +405,18 @@ export function VideoInput({ items, onChange, lockedUrls, onResetLocks }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [list]);
 
+  // Cắt video tham chiếu: giữ index để biết thay video nào sau khi cắt xong.
+  const [cutIndex, setCutIndex] = React.useState(-1);
+  const cutTarget = cutIndex >= 0 ? list[cutIndex] : null;
+
+  const applyCut = (item) => {
+    onChange((prev) => {
+      const current = Array.isArray(prev) ? prev : list;
+      return current.map((it, i) => (i === cutIndex ? { ...it, ...item, previewUrl: '' } : it));
+    });
+    setCutIndex(-1);
+  };
+
   const known = list.filter((it) => Number(it.seconds) > 0);
   const totalSeconds = known.reduce((sum, it) => sum + Number(it.seconds), 0);
 
@@ -467,6 +480,11 @@ export function VideoInput({ items, onChange, lockedUrls, onResetLocks }) {
                       {Number(it.seconds) > 0 ? formatSeconds(it.seconds) : 'đang đo…'}
                     </span>
                     <div className="flex items-center gap-1">
+                      <IconButton
+                        label={`Cắt video ${index + 1}`}
+                        icon="ph-scissors"
+                        onClick={() => setCutIndex(index)}
+                      />
                       <IconButton
                         label={`Xem trước video ${index + 1}`}
                         icon="ph-eye"
@@ -554,6 +572,12 @@ export function VideoInput({ items, onChange, lockedUrls, onResetLocks }) {
       {up.busy ? <p className="mt-2 text-xs text-[#777777]">Đang tải lên…</p> : null}
       {up.error ? <p className="mt-2 text-xs text-[#ef4444]">{up.error}</p> : null}
         {up.renderAlbumModal()}
+      <CutVideoModal
+        isOpen={!!cutTarget}
+        video={cutTarget}
+        onClose={() => setCutIndex(-1)}
+        onDone={applyCut}
+      />
     </Panel>
   );
 }
