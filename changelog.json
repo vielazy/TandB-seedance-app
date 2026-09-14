@@ -1,5 +1,19 @@
 [
   {
+    "version": "1.3.1",
+    "changed_at": "2026-09-14T00:00:00.000Z",
+    "type": "fix",
+    "title": "Video tham chiếu chưa bao giờ tới được model — đổi sang refs[][type]",
+    "items": [
+      "Triệu chứng: mọi job /ai/create-video đều dừng ở 'Input hoặc prompt không được chấp nhận. Vui lòng đổi file tham chiếu' (#vid_input_or_prompt). Ảnh vào được (thấy trong objects) nhưng video tham chiếu thì không, nên @video1 trong prompt luôn trỏ vào chỗ trống.",
+      "Root cause: buildCreateVideoBody gửi references[i][url] cho ảnh và video_urls[i][url] cho video. video_urls[] KHÔNG phải chỗ để gắn video tham chiếu, và backend từ chối cả payload.",
+      "lib/modelCatalog.js: gộp mọi tham chiếu vào refs[i][type] + refs[i][url] (image trước, rồi video, rồi audio) — thứ tự trong mảng chính là @image1/@image2/@video1.",
+      "Đo bằng 2 lần chạy A/B thật: seedance_20_pro_edit (12.000 credit/lần, media A) và seedance_20_mini (5.590 credit/lần, media tự sinh bằng ffmpeg). Định dạng cũ ERROR cả hai lần; refs[] chạy tới MEDIA_GENERATION_STATUS_SUCCESSFUL và trả video 864x496 4,096s.",
+      "Đã thử thêm nhánh video_files[] multipart theo inputSpec model khai báo: backend trả lỗi 2100 'Tải media lên thất bại' → chưa dùng được, refs[] mới là đường đúng.",
+      "README: đánh dấu rõ định dạng nào chạy, định dạng nào bị từ chối."
+    ]
+  },
+  {
     "version": "1.3.0",
     "changed_at": "2026-09-14T00:00:00.000Z",
     "type": "fix",

@@ -75,13 +75,15 @@ Gửi `multipart/form-data` khi có `video_file` / `video_files[]` / `audio_file
 
 | Field | Ý nghĩa |
 |---|---|
-| `refs[i][type]` + `refs[i][url]` | tham chiếu kèm loại (`image`/`video`/`audio`) — thứ tự quyết định `@image1`, `@video1`… |
-| `references[i][url]` | tham chiếu chỉ có URL (app đang dùng) |
+| ✅ `refs[i][type]` + `refs[i][url]` | **cách duy nhất chạy được.** `type` = `image`/`video`/`audio`; thứ tự trong mảng quyết định `@image1`, `@image2`, `@video1`… |
+| ❌ `references[i][url]` + `video_urls[i][url]` | backend nhận job rồi **luôn báo lỗi** `#vid_input_or_prompt` — *"Input hoặc prompt không được chấp nhận. Vui lòng đổi file tham chiếu"* |
 | `images[i][url]`, `images[i][id_base]` | ảnh thành phần |
-| `video_urls[i][url]`, `audio_urls[i][url]` | media theo URL |
-| `video_files[]`, `audio_files[]` | media upload thẳng trong request |
+| `video_files[]`, `audio_files[]` | media upload thẳng trong request (multipart) |
 | `start_seconds`, `end_seconds` | cắt video nguồn ngay trong lệnh tạo |
 | `video_seconds`, `multi_shots`, `multi_prompt[i][prompt\|duration]`, `cameos`, `remix_url`, `template_id` | tuỳ chọn khác |
+
+Kết luận rút ra từ hai lần chạy A/B thật (`seedance_20_pro_edit` và `seedance_20_mini`, hai bộ
+media khác nhau): định dạng cũ hỏng **cả hai lần**, `refs[]` thành công và trả về video hoàn chỉnh.
 
 ### Ràng buộc của Seedance 2.0 - Omni
 
