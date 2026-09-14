@@ -187,10 +187,10 @@ export default function TokenSettings({ onTokenSaved }) {
                 <p className="font-semibold text-[#aaa]">
                   <i className="ph ph-lightbulb mr-1 text-[#f59e0b]" /> Hướng dẫn lấy Access Token:
                 </p>
-                <p>1. Mở trang <a href="https://79ai.net" target="_blank" rel="noreferrer" className="text-[#c7ff44] underline">79ai.net</a> và đăng nhập tài khoản của bạn.</p>
-                <p>2. Nhấn phím <b>F12</b> để mở công cụ nhà phát triển (DevTools) → Chọn tab <b>Network</b>.</p>
-                <p>3. Thao tác bất kỳ (như tải lại trang hoặc tạo video) → Tìm request gửi đến <b>api.gommo.net</b>.</p>
-                <p>4. Xem phần <b>Payload / Body</b> hoặc Headers để copy chuỗi <b>access_token</b> và dán vào đây.</p>
+                <p>1. Mở <a href="https://79ai.net" target="_blank" rel="noreferrer" className="text-[#c7ff44] underline">79ai.net</a> và <b>đăng nhập</b> — chưa đăng nhập thì không có token nào.</p>
+                <p>2. Vào <a href="https://79ai.net/settings/tokens" target="_blank" rel="noreferrer" className="text-[#c7ff44] underline">79ai.net/settings/tokens</a> → bấm <b>Tạo access token</b>.</p>
+                <p>3. Copy chuỗi token vừa tạo rồi dán vào ô phía trên.</p>
+                <p className="pt-1 text-[#666]">Cách khác: nhấn <b>F12</b> → tab <b>Console</b> → gõ <code className="text-[#aaa]">localStorage.getItem('gommo_access_token')</code></p>
               </div>
             </div>
 

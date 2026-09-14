@@ -1,114 +1,153 @@
-﻿# Seedance Fashion Studio (TandB-seedance-app)
+﻿# Seedance Fashion Studio
 
-Ứng dụng studio AI chuyên nghiệp hỗ trợ ghép ảnh nhân vật, ảnh thời trang và video tham chiếu để tạo hàng loạt video Seedance với quản lý phiên, storyboard grid, luồng đồng thời và tích hợp API 79AI / Gommo.
+Ứng dụng tạo hàng loạt video AI trên 79AI: đưa vào **ảnh nhân vật**, **ảnh trang phục** và **video mẫu**, app sẽ dựng ra video mới giữ nguyên khuôn mặt, mặc đúng bộ đồ và chuyển động theo video mẫu.
 
-## ✨ Tính năng chính
+---
 
-- **Nhập ảnh nhân vật (@image1):** Khóa diện mạo, đường nét khuôn mặt, kiểu tóc và màu da.
-- **Nhập ảnh thời trang (@image2):** Khóa trang phục, phụ kiện, chất liệu vải và giày dép.
-- **Nhập video tham chiếu (@video1):** Khóa chuyển động nhân vật, góc quay camera, bối cảnh và nhịp điệu.
-- **Tích hợp 79AI:** Hỗ trợ nhập Access Token và kết nối trực tiếp với backend 79AI (`79ai.net` / `api.gommo.net`).
-- **Storyboard Grid:** Quản lý hàng loạt tác vụ theo phiên (session) với nhiều luồng song song, theo dõi tiến độ thời gian thực.
-- **Chế độ Demo Offline:** Sẵn sàng chạy mô phỏng ngay cả khi chưa nhập token.
+# Hướng dẫn cho người mới
 
-## 🚀 Hướng dẫn cài đặt và chạy trên Localhost
+Phần này viết cho người chưa từng dùng terminal. Làm đúng thứ tự, mất khoảng 10 phút cho lần đầu.
 
-1. **Cài đặt dependencies:**
-   ```bash
-   npm install
-   ```
+## Bước 1 — Cài Node.js
 
-2. **Khởi chạy môi trường phát triển (Dev Server):**
-   ```bash
-   npm run dev
-   ```
+App cần Node.js mới chạy được. Máy chưa có thì tải về:
 
-3. **Mở trình duyệt:**
-   Truy cập `http://localhost:5173/` để sử dụng ứng dụng.
+👉 **https://nodejs.org** — bấm nút tải bản **LTS**, cài như mọi phần mềm khác (Next → Next → Finish).
 
-## 🔑 Cấu hình 79AI Access Token
+> Cần Node.js phiên bản **20.19 trở lên**. Bản LTS trên trang chủ luôn thoả điều kiện này.
 
-1. Đăng nhập tài khoản trên [79ai.net](https://79ai.net) — chưa đăng nhập thì không có token nào cả.
-2. Lấy token theo một trong hai cách:
-   - **Nên dùng:** vào `https://79ai.net/settings/tokens` rồi bấm **"Tạo access token"**.
-   - Hoặc nhấn `F12` -> tab **Console** -> chạy `localStorage.getItem('gommo_access_token')`.
-3. Trên giao diện ứng dụng, bấm nút **"Liên kết 79AI"** ở góc trên bên phải, dán token và bấm **"Lưu & Đồng bộ"**.
-
-## 📡 API 79AI — hợp đồng thật
-
-Dò trực tiếp từ bundle của `79ai.net` và kiểm lại bằng request thật (09/2026).
-
-### Upload media — Files Manager
+Kiểm tra đã cài xong chưa: mở **Command Prompt** (bấm phím Windows, gõ `cmd`, Enter), gõ:
 
 ```
-POST https://v2.api.gommo.net/ai/upload/{image|video|audio}
-Content-Type: multipart/form-data
-  access_token, domain
-  file        ← CHỈ cho ảnh
-  video_file  ← cho video và audio
-  project_id, file_name, size
-  category    ← tuỳ chọn, chỉ ảnh
+node --version
 ```
 
-- HTTP `413` = *"File quá to vượt quá 50MB hệ thống cho phép"*.
-- Phản hồi: URL nằm ở `data.url` / `imageInfo.url` / `videoInfo.url` — hoặc `download_url`, `file_url`, `resolutions[0].url`.
-- Endpoint mở CORS cho mọi origin (kể cả `null` của Electron) nên gọi thẳng, không cần proxy.
+Hiện ra một dãy số kiểu `v22.11.0` là được. Báo lỗi "không phải là lệnh" thì cài lại và **khởi động lại máy**.
 
-### Cắt / render video
+## Bước 2 — Tải app về
 
-```
-POST https://api.gommo.net/api/apps/go-mmo/ai_spaces/render
-Content-Type: application/x-www-form-urlencoded
-  access_token, domain, project_id
-  plan = JSON.stringify(<render plan>)
-```
+Vào trang app trên GitHub, bấm nút xanh **`Code`** → **`Download ZIP`**.
 
-Plan do `lib/cutVideo.js` dựng (schema `version: 1`, gồm `out`, `export`, `inputs`, `videoClips`, `audioClips`). Trả `{ url, sizeMB }`.
+Giải nén file ZIP ra một thư mục dễ tìm, ví dụ `D:\seedance`. Sau khi giải nén, bên trong thư mục phải nhìn thấy file `package.json`.
 
-### Tạo video
+## Bước 3 — Mở Command Prompt tại đúng thư mục
+
+Mở thư mục vừa giải nén trong File Explorer. Bấm vào **thanh địa chỉ** ở trên cùng (chỗ hiện đường dẫn), gõ đè lên đó chữ:
 
 ```
-POST https://api.gommo.net/api/apps/go-mmo/ai/create-video
+cmd
 ```
 
-Gửi `multipart/form-data` khi có `video_file` / `video_files[]` / `audio_files[]`, còn lại dùng `x-www-form-urlencoded`. Các field media:
+rồi Enter. Một cửa sổ đen hiện ra, và nó đang đứng sẵn ở đúng thư mục app.
 
-| Field | Ý nghĩa |
+## Bước 4 — Cài đặt (chỉ làm 1 lần)
+
+Trong cửa sổ đen đó, gõ:
+
+```
+npm install
+```
+
+Chờ khoảng 30 giây. Chạy xong sẽ thấy dòng kiểu `added 402 packages`. Có vài dòng chữ vàng `warn` là bình thường, không phải lỗi.
+
+## Bước 5 — Chạy app
+
+```
+npm run dev
+```
+
+Màn hình hiện ra:
+
+```
+➜  Local:   http://localhost:5173/
+```
+
+Mở trình duyệt (Chrome, Edge đều được) vào địa chỉ **http://localhost:5173**
+
+⚠️ **Giữ nguyên cửa sổ đen, đừng đóng.** Đóng nó là app tắt. Muốn dùng lại sau này thì chỉ cần làm lại **Bước 3 và Bước 5**, không phải cài lại nữa.
+
+## Bước 6 — Nhập Access Token 79AI
+
+App cần token để nối vào tài khoản 79AI.
+
+1. Mở **https://79ai.net** và **đăng nhập**. Chưa đăng nhập thì không có token nào cả.
+2. Vào **https://79ai.net/settings/tokens** → bấm **Tạo access token** → copy chuỗi vừa tạo.
+3. Quay lại app, bấm nút **`Liên kết 79AI (Nhập Token)`** ở góc trên bên phải.
+4. Dán token vào ô → bấm **`Lưu & Đồng bộ`**.
+
+Nút ở góc phải chuyển thành **`79AI: Đã kết nối`** màu xanh là xong.
+
+---
+
+# Cách dùng
+
+Các panel bên trái, làm từ trên xuống:
+
+| Panel | Việc cần làm |
 |---|---|
-| ✅ `refs[i][type]` + `refs[i][url]` | **cách duy nhất chạy được.** `type` = `image`/`video`/`audio`; thứ tự trong mảng quyết định `@image1`, `@image2`, `@video1`… |
-| ❌ `references[i][url]` + `video_urls[i][url]` | backend nhận job rồi **luôn báo lỗi** `#vid_input_or_prompt` — *"Input hoặc prompt không được chấp nhận. Vui lòng đổi file tham chiếu"* |
-| `images[i][url]`, `images[i][id_base]` | ảnh thành phần |
-| `video_files[]`, `audio_files[]` | media upload thẳng trong request (multipart) |
-| `start_seconds`, `end_seconds` | cắt video nguồn ngay trong lệnh tạo |
-| `video_seconds`, `multi_shots`, `multi_prompt[i][prompt\|duration]`, `cameos`, `remix_url`, `template_id` | tuỳ chọn khác |
+| **0 · Project** | Chọn dự án để chứa video. Dùng chung tài khoản với người khác thì nên chọn project riêng cho khỏi lẫn. |
+| **1 · Ảnh nhân vật** | Tải lên 1 ảnh — app lấy **khuôn mặt và kiểu tóc** từ đây (`@image1`). |
+| **2 · Ảnh thời trang** | Tải lên 1 hoặc nhiều ảnh — app lấy **bộ đồ** từ đây (`@image2`). |
+| **3 · Video tham chiếu** | Tải lên video mẫu — app bắt chước **chuyển động, góc quay, bối cảnh** (`@video1`). |
+| **4 · Model video** | Chọn model và chất lượng. Góc phải panel hiện **giá credit cho mỗi video**. |
+| **5 · Cấu hình chạy** | Thời lượng, random ảnh, thông báo Telegram. |
 
-Kết luận rút ra từ hai lần chạy A/B thật (`seedance_20_pro_edit` và `seedance_20_mini`, hai bộ
-media khác nhau): định dạng cũ hỏng **cả hai lần**, `refs[]` thành công và trả về video hoàn chỉnh.
-
-### Ràng buộc của Seedance 2.0 - Omni
-
-Đọc từ `configs.reference` trong `/ai/models`:
-
-- Tối đa 10 tham chiếu: 6 ảnh, 2 video, 2 audio (notices khuyến nghị 3 ảnh + 1 video + 1 audio).
-- **Video tham chiếu tối đa 15.200 ms**, audio tối đa 15.000 ms → video dài hơn phải cắt trước.
+Xong thì sang cột phải, đặt **Số video tối đa** rồi bấm **`Tạo phiên mới`**.
 
 ## ✂️ Cắt video tham chiếu
 
-Panel *3 · Video tham chiếu* → nút kéo trên mỗi video. Năm chế độ port nguyên từ node "Cut Video" của 79ai.net:
+Model **chỉ nhận video mẫu tối đa 15,2 giây**. Video dài hơn phải cắt trước.
 
-| Chế độ | Tham số |
+Ở panel 3, di chuột lên video → bấm **biểu tượng cái kéo**. Chọn một trong 5 kiểu:
+
+| Kiểu | Dùng khi |
 |---|---|
-| `fix` — N giây đầu | `duration` |
-| `range` — từ A → B | `start_time`, `end_time` |
-| `last` — N giây cuối | `duration` |
-| `trim` — bỏ đầu / bỏ cuối | `trim_start`, `trim_end` |
-| `random` — ngẫu nhiên | `rand_range_start/end`, `rand_dur_min/max` |
+| **N giây đầu** | Lấy đoạn mở đầu |
+| **Từ A → B** | Biết chính xác cần đoạn từ giây nào tới giây nào |
+| **N giây cuối** | Lấy đoạn kết |
+| **Bỏ đầu / bỏ cuối** | Cắt bớt hai đầu, giữ khúc giữa |
+| **Ngẫu nhiên** | Mỗi lần bấm lấy một đoạn khác nhau |
 
-Thời lượng video đo phía client bằng thẻ `<video>`; vướng CORS thì tải qua `media-proxy.gommo.net` rồi đo lại.
+Bấm **`Cắt video`**, chờ vài giây. Video trong panel 3 sẽ được thay bằng bản đã cắt.
 
-### Kiểm API bằng dòng lệnh
+---
 
-```bash
-node scripts/check-79ai.mjs <ACCESS_TOKEN>          # upload + cắt thật
-node scripts/check-79ai.mjs <ACCESS_TOKEN> --no-cut # chỉ kiểm upload
-```
+# Gặp lỗi thì làm gì
+
+### "Vi phạm chính sách bản quyền IP"
+
+**Bấm `Tạo lại` trên thẻ video đó.** Bộ lọc của 79AI thỉnh thoảng chặn nhầm — cùng một nội dung, lúc chạy lúc không. **Job lỗi được hoàn lại credit**, thử lại không mất tiền. Thử 2–3 lần vẫn lỗi thì mới đổi ảnh hoặc rút ngắn prompt.
+
+### "Media job timeout"
+
+Video render lâu hơn thời gian chờ. Vào panel 5, tăng **Timeout tạo video** lên (mặc định 3600 giây = 1 tiếng).
+
+### Nút "Tạo phiên mới" bị mờ, không bấm được
+
+Bên dưới nút có dòng chữ vàng nói còn thiếu gì — thường là chưa có ảnh nhân vật ở panel 1.
+
+### App không mở được ở localhost:5173
+
+Kiểm tra cửa sổ đen còn đang chạy không. Lỡ đóng thì làm lại Bước 3 và Bước 5.
+
+### Chưa nhập token thì sao?
+
+App vẫn mở được và xem được danh sách model, nhưng **không tạo được video thật**.
+
+---
+
+# Lưu ý khi dùng chung tài khoản
+
+Nhiều người dùng chung một access token nghĩa là **chung một tài khoản 79AI**:
+
+- **Chung túi credit** — mỗi video bất kỳ ai tạo đều trừ vào cùng một số dư.
+- **Chung thư viện** — ảnh và video của mọi người nằm lẫn nhau. Nên mỗi người chọn một project riêng ở panel 0.
+- **Không thu hồi riêng lẻ được** — muốn cắt quyền một người thì phải đổi token cho tất cả. Trang `79ai.net/settings/tokens` cho tạo nhiều token, mỗi người một cái, thu hồi riêng được.
+
+⚠️ **Token giống như mật khẩu.** Đừng gửi qua nơi công khai, đừng chụp màn hình đăng lên mạng.
+
+---
+
+# Dành cho người đọc code
+
+Hợp đồng API thật của 79AI (upload, render/cắt video, tạo video), ràng buộc của model và cách kiểm bằng dòng lệnh: xem [`docs/API.md`](docs/API.md).
